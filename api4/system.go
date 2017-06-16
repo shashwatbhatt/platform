@@ -33,6 +33,8 @@ func InitSystem() {
 
 	BaseRoutes.ApiRoot.Handle("/logs", ApiSessionRequired(getLogs)).Methods("GET")
 	BaseRoutes.ApiRoot.Handle("/logs", ApiSessionRequired(postLog)).Methods("POST")
+
+	BaseRoutes.ApiRoot.Handle("/analytics/old", ApiSessionRequired(getAnalytics)).Methods("GET")
 }
 
 func getSystemPing(c *Context, w http.ResponseWriter, r *http.Request) {
@@ -259,4 +261,31 @@ func getClientLicense(c *Context, w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set(model.HEADER_ETAG_SERVER, etag)
 	w.Write([]byte(model.MapToJson(clientLicense)))
+}
+
+func getAnalytics(c *Context, w http.ResponseWriter, r *http.Request) {
+	name := r.URL.Query().Get("name")
+	teamId := r.URL.Query().Get("team_id")
+
+	if name == "" {
+		name = "standard"
+	}
+
+	if !app.SessionHasPermissionTo(c.Session, model.PERMISSION_MANAGE_SYSTEM) {
+		c.SetPermissionError(model.PERMISSION_MANAGE_SYSTEM)
+		return
+	}
+
+	rows, err := app.GetAnalytics(name, teamId)
+	if err != nil {
+		c.Err = err
+		return
+	}
+
+	if rows == nil {
+		c.SetInvalidParam("name")
+		return
+	}
+
+	w.Write([]byte(rows.ToJson()))
 }
